@@ -12,9 +12,12 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - postgres
-      - redis
-      - chromadb
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
     restart: unless-stopped
 
   frontend:
@@ -25,6 +28,8 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -42,12 +47,22 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farmgpt"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   chromadb:
