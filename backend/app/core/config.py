@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     chroma_host: str = "localhost"
     chroma_port: int = 8001
 
-    # CORS
-    cors_origins: str = "http://localhost:3000"
+    # CORS (콤마로 여러 도메인 지정 가능)
+    cors_origins: str = "http://localhost:3000,https://*.vercel.app"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
