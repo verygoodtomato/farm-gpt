@@ -91,7 +91,8 @@ class DiagnosisService:
 
     def __init__(self):
         self.client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-        self.model = "claude-sonnet-4-20250514"
+        self.model_vision = "claude-sonnet-4-20250514"  # 이미지 진단은 Sonnet
+        self.model_text = "claude-haiku-4-5-20241022"   # 텍스트 진단은 Haiku (빠름)
 
     async def diagnose_image(
         self,
@@ -153,7 +154,7 @@ class DiagnosisService:
 
         # Claude Vision API 호출
         response = await self.client.messages.create(
-            model=self.model,
+            model=self.model_vision,
             max_tokens=2048,
             system=system_prompt,
             messages=[{"role": "user", "content": user_content}],
@@ -165,7 +166,7 @@ class DiagnosisService:
             "diagnosis": diagnosis_text,
             "crop_type": crop_type,
             "image_size": f"{image.size[0]}x{image.size[1]}",
-            "model": self.model,
+            "model": self.model_vision,
         }
 
     async def diagnose_text(
@@ -186,7 +187,7 @@ class DiagnosisService:
         system_prompt = VISION_DIAGNOSIS_PROMPT.format(crop_context=crop_context)
 
         response = await self.client.messages.create(
-            model=self.model,
+            model=self.model_text,
             max_tokens=2048,
             system=system_prompt,
             messages=[

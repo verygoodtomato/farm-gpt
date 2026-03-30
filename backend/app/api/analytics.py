@@ -47,7 +47,7 @@ async def predict_price(
             ),
         }
     ]
-    ai_analysis = await chat_service.chat(messages, system=ANALYTICS_PROMPT)
+    ai_analysis = await chat_service.chat(messages, system=ANALYTICS_PROMPT, use_advanced=True)
     prediction["ai_analysis"] = ai_analysis
 
     return prediction
