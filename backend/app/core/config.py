@@ -10,15 +10,14 @@ class Settings(BaseSettings):
     # Anthropic
     anthropic_api_key: str = ""
 
-    # Database
-    database_url: str = "postgresql+asyncpg://farmgpt:farmgpt123@localhost:5432/farmgpt"
+    # Database (optional - not used in cloud free tier)
+    database_url: str = ""
 
-    # Redis
-    redis_url: str = "redis://localhost:6379/0"
+    # Redis (optional)
+    redis_url: str = ""
 
-    # ChromaDB
-    chroma_host: str = "localhost"
-    chroma_port: int = 8001
+    # ChromaDB - local persistent mode for cloud
+    chroma_persist_dir: str = "/tmp/chroma_data"
 
     # CORS (콤마로 여러 도메인 지정 가능)
     cors_origins: str = "http://localhost:3000,https://*.vercel.app"

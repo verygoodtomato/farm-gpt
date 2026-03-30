@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Optional
 
 import chromadb
-from chromadb.config import Settings as ChromaSettings
 
 from app.core.config import get_settings
 
@@ -14,13 +13,12 @@ KNOWLEDGE_BASE_DIR = Path(__file__).parent.parent.parent.parent / "data" / "know
 
 
 class VectorStore:
-    """ChromaDB 기반 벡터 저장소"""
+    """ChromaDB 기반 벡터 저장소 (로컬 영속 모드)"""
 
     def __init__(self):
-        self.client = chromadb.HttpClient(
-            host=settings.chroma_host,
-            port=settings.chroma_port,
-        )
+        persist_dir = settings.chroma_persist_dir
+        os.makedirs(persist_dir, exist_ok=True)
+        self.client = chromadb.PersistentClient(path=persist_dir)
         self.collection_name = "farm_knowledge"
         self._collection = None
 
@@ -35,7 +33,6 @@ class VectorStore:
 
     def _chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 100) -> list[str]:
         """텍스트를 청크로 분할 (섹션 기반 + 크기 기반 혼합)"""
-        # 마크다운 헤딩 기준으로 섹션 분리
         sections = []
         current_section = ""
         current_heading = ""
@@ -57,13 +54,11 @@ class VectorStore:
         if current_section.strip():
             sections.append((current_heading, current_section.strip()))
 
-        # 각 섹션을 chunk_size 이하로 분할
         chunks = []
         for heading, section in sections:
             if len(section) <= chunk_size:
                 chunks.append(section)
             else:
-                # 긴 섹션은 오버랩 기반 분할
                 words = section.split()
                 current_chunk = []
                 current_len = 0
@@ -74,7 +69,6 @@ class VectorStore:
 
                     if current_len >= chunk_size:
                         chunks.append(" ".join(current_chunk))
-                        # 오버랩: 마지막 overlap 글자만큼 유지
                         overlap_words = []
                         overlap_len = 0
                         for w in reversed(current_chunk):
@@ -112,7 +106,6 @@ class VectorStore:
             file_hash = self._file_hash(filepath)
             source = filepath.stem
 
-            # 이미 인덱싱된 파일인지 확인
             existing = self.collection.get(
                 where={"source": source},
                 limit=1,
@@ -122,12 +115,10 @@ class VectorStore:
                 if existing_hash == file_hash:
                     indexed_files.append({"file": filepath.name, "status": "skipped", "reason": "unchanged"})
                     continue
-                # 변경된 파일이면 기존 청크 삭제
                 old_ids = self.collection.get(where={"source": source})["ids"]
                 if old_ids:
                     self.collection.delete(ids=old_ids)
 
-            # 청크 분할 및 인덱싱
             chunks = self._chunk_text(content)
             ids = [f"{source}_{i}" for i in range(len(chunks))]
             metadatas = [
@@ -158,9 +149,12 @@ class VectorStore:
 
     def search(self, query: str, n_results: int = 5) -> list[dict]:
         """쿼리와 관련된 문서 검색"""
+        if self.collection.count() == 0:
+            return []
+
         results = self.collection.query(
             query_texts=[query],
-            n_results=n_results,
+            n_results=min(n_results, self.collection.count()),
             include=["documents", "metadatas", "distances"],
         )
 
@@ -174,7 +168,7 @@ class VectorStore:
                 search_results.append({
                     "content": doc,
                     "source": meta.get("source", "unknown"),
-                    "relevance": round(1 - dist, 4),  # cosine distance → similarity
+                    "relevance": round(1 - dist, 4),
                 })
 
         return search_results
